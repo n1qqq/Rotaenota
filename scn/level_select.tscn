@@ -1,0 +1,74 @@
+[gd_scene load_steps=2 format=3 uid="uid://5mx6n1senmji"]
+
+[ext_resource type="Script" uid="uid://dsxfvfucdpd0y" path="res://src/level_select.gd" id="1_mpd6t"]
+
+[node name="LevelSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_mpd6t")
+
+[node name="TopBar" type="HBoxContainer" parent="."]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+alignment = 2
+
+[node name="SettingsButton" type="Button" parent="TopBar"]
+layout_mode = 2
+text = "Settings"
+
+[node name="Content" type="HSplitContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Content"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Content/ScrollContainer"]
+custom_minimum_size = Vector2(180, 20)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="PreviewPanel" type="VSplitContainer" parent="Content"]
+custom_minimum_size = Vector2(30, 0)
+layout_mode = 2
+dragging_enabled = false
+dragger_visibility = 2
+
+[node name="LevelPreview" type="TextureRect" parent="Content/PreviewPanel"]
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LevelDetails" type="VSplitContainer" parent="Content/PreviewPanel"]
+layout_mode = 2
+dragging_enabled = false
+dragger_visibility = 2
+
+[node name="LevelInfo" type="VBoxContainer" parent="Content/PreviewPanel/LevelDetails"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
+layout_mode = 2
+
+[node name="Name" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
+layout_mode = 2
+
+[node name="Author" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
+layout_mode = 2
+
+[node name="Difficulty" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="Content/PreviewPanel/LevelDetails"]
+layout_mode = 2

@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://dethydri37nt8"]
+
+[ext_resource type="Script" uid="uid://ccousyi5wkewh" path="res://src/main_menu.gd" id="1_qj4d0"]
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_qj4d0")

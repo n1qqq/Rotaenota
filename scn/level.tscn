@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://bu1436jatdiop"]
+
+[ext_resource type="Script" uid="uid://brktrmvp71cck" path="res://src/level.gd" id="1_xhvlv"]
+[ext_resource type="Script" uid="uid://bycelh80peqbv" path="res://src/gyroscope_agent.gd" id="2_nkl5l"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_xhvlv")
+
+[node name="GyroscopeAgent" type="Node" parent="."]
+script = ExtResource("2_nkl5l")
