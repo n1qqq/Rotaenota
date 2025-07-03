@@ -20,7 +20,7 @@ alignment = 2
 
 [node name="SettingsButton" type="Button" parent="TopBar"]
 layout_mode = 2
-text = "Settings"
+text = "SETTINGS"
 
 [node name="Content" type="HSplitContainer" parent="."]
 layout_mode = 1
@@ -58,11 +58,11 @@ dragger_visibility = 2
 [node name="LevelInfo" type="VBoxContainer" parent="Content/PreviewPanel/LevelDetails"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
+[node name="Name" type="RichTextLabel" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
+clip_contents = false
 layout_mode = 2
-
-[node name="Name" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
-layout_mode = 2
+bbcode_enabled = true
+fit_content = true
 
 [node name="Author" type="Label" parent="Content/PreviewPanel/LevelDetails/LevelInfo"]
 layout_mode = 2
@@ -72,3 +72,4 @@ layout_mode = 2
 
 [node name="StartButton" type="Button" parent="Content/PreviewPanel/LevelDetails"]
 layout_mode = 2
+text = "START"

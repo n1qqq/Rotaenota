@@ -3,8 +3,119 @@
 [ext_resource type="Script" uid="uid://bvievsr7yhp36" path="res://src/settings.gd" id="1_agoxk"]
 
 [node name="Control" type="Control"]
+process_mode = 2
+custom_minimum_size = Vector2(150, 100)
 layout_mode = 3
-anchors_preset = 0
-offset_right = 40.0
-offset_bottom = 40.0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -125.0
+offset_right = 200.0
+offset_bottom = 125.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_agoxk")
+
+[node name="BackButton" type="Button" parent="."]
+custom_minimum_size = Vector2(75, 75)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -50.0
+offset_bottom = 50.0
+grow_horizontal = 0
+text = "SET!"
+
+[node name="SpeedControls" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -50.0
+offset_top = 50.0
+offset_right = 50.0
+offset_bottom = 100.0
+grow_horizontal = 2
+
+[node name="sss" type="Button" parent="SpeedControls"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "↓↓↓"
+
+[node name="RichTextLabel2" type="RichTextLabel" parent="SpeedControls"]
+clip_contents = false
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+bbcode_enabled = true
+
+[node name="ss" type="Button" parent="SpeedControls"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "↓↓"
+
+[node name="RichTextLabel3" type="RichTextLabel" parent="SpeedControls"]
+clip_contents = false
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+bbcode_enabled = true
+
+[node name="s" type="Button" parent="SpeedControls"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "↓"
+
+[node name="Speed" type="RichTextLabel" parent="SpeedControls"]
+clip_contents = false
+layout_mode = 2
+bbcode_enabled = true
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="f" type="Button" parent="SpeedControls"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "↑"
+
+[node name="RichTextLabel4" type="RichTextLabel" parent="SpeedControls"]
+clip_contents = false
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+bbcode_enabled = true
+
+[node name="ff" type="Button" parent="SpeedControls"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "↑↑"
+
+[node name="RichTextLabel5" type="RichTextLabel" parent="SpeedControls"]
+clip_contents = false
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+bbcode_enabled = true
+
+[node name="fff" type="Button" parent="SpeedControls"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+text = "↑↑↑"
+
+[node name="GyroButton" type="OptionButton" parent="."]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -101.5
+offset_right = 101.5
+offset_bottom = 31.0
+grow_horizontal = 2
+allow_reselect = true
+item_count = 3
+popup/item_0/text = "Gyroscope - Handhold"
+popup/item_0/id = 0
+popup/item_1/text = "Gyroscope - Desktop"
+popup/item_1/id = 1
+popup/item_2/text = "Accelerometer"
+popup/item_2/id = 2

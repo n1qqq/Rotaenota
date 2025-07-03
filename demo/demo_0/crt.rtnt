@@ -1,0 +1,25 @@
+// Customized Chart File
+
+// Supports "//" and "#" signs for single-line comments
+// Supports extra new-lines
+
+// Signatures
+# m, meta: meta-data
+# == b, bpm: beats per minute
+# == l, line: line performance
+// n, note: note info
+// == t, tap: tap/touch note (blue)
+// == s, slide, d, drag: slide/drag note (yellow)
+// == == s, small, l, little: smaller ones
+// == == b, big, L, Large: larger ones
+// == f, flick: flick note (purple)
+// == c, catch: catch note (magenta)
+// == r, rotate: rotate note
+// == == c, cw, clockwise, r, red: rotate clockwise (red)
+// == == cc, ccw, counterclockwise, b, blue: rotate counter-clockwise (blue)
+
+// Format
+# signature1 | signature2 | ... | signatureN : value1 | value2
+# e.g. meta | bpm: 160
+# e.g. n|r|ccw:2.5|			blue rotate note @ beat # 2.5
+# e.g. n|catch:17.875|210	catch note @ beat # 17.875 @ degree 210 (Lower-Left)
