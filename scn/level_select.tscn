@@ -40,7 +40,7 @@ size_flags_vertical = 3
 mouse_filter = 2
 
 [node name="PreviewPanel" type="VSplitContainer" parent="Content"]
-custom_minimum_size = Vector2(30, 0)
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 dragging_enabled = false
 dragger_visibility = 2

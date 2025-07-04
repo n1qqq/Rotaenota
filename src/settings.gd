@@ -29,9 +29,12 @@ func read_settings():
 	speed_label.text = set_font_size(str(Globals.note_speed), 24)
 	gyro_button.selected = Globals.gyro_type
 
-## Store settings to .cfg file
+## Store settings to preferences.json file
 func save_settings():
-	pass
+	if FileAccess.file_exists(Globals.settings_path):
+		var file = FileAccess.open(Globals.settings_path, FileAccess.WRITE)
+		file.store_string(JSON.stringify({"gyro_type": Globals.gyro_type, "note_speed": Globals.note_speed, 
+						  "render_timing": Globals.render_timing, "render_pool": Globals.render_pool}, "\t"))
 
 func show_panel():
 	modulate.a = 0
@@ -46,7 +49,6 @@ func hide_panel():
 func _on_gyro_selected(type_id: int):
 	Globals.gyro_type = type_id
 	read_settings()
-	save_settings()
 	
 func _on_speed_buttons_pressed(name: String):
 	var val: float
@@ -62,5 +64,6 @@ func _on_speed_buttons_pressed(name: String):
 
 func _on_back_button_pressed():
 	#hide_panel()
+	save_settings()
 	get_tree().paused = false
 	queue_free()

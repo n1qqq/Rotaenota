@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://dagoqxk4j2xx2"]
+[gd_scene load_steps=3 format=3 uid="uid://dagoqxk4j2xx2"]
 
 [ext_resource type="Script" uid="uid://bvievsr7yhp36" path="res://src/settings.gd" id="1_agoxk"]
+[ext_resource type="Texture2D" uid="uid://cepte35aobans" path="res://res/Sweet_Sign(ani).jpg" id="2_h7rwo"]
 
 [node name="Control" type="Control"]
 process_mode = 2
@@ -119,3 +120,16 @@ popup/item_1/text = "Gyroscope - Desktop"
 popup/item_1/id = 1
 popup/item_2/text = "Accelerometer"
 popup/item_2/id = 2
+
+[node name="TextureRect" type="TextureRect" parent="."]
+self_modulate = Color(0.6, 0.6, 0.6, 1)
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_h7rwo")
+expand_mode = 1
