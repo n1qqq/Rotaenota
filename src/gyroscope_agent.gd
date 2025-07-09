@@ -58,5 +58,15 @@ func calibrating():
 func get_pitch_angle() -> float:
 	return current_pitch
 
+func get_next_angle(prev: Vector3, delta: Vector3) -> Vector3:
+	# use .z to get the angle
+	match Globals.gyro_type:
+		Globals.GYRO.HANDHOLD, Globals.GYRO.DESKTOP:
+			return prev + delta
+		Globals.GYRO.ACCEL:
+			return prev + delta / 3
+		_:
+			return Vector3.ZERO
+
 func is_device_flat() -> bool:
 	return abs(current_pitch) < deg_to_rad(5)  # 5度以内视为水平

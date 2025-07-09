@@ -46,8 +46,8 @@ func scan_levels(path:=LEVELS_DIR_NAME) -> Array[Dictionary]:
 		var folder = dir.get_next()
 		while folder != "":
 			if dir.current_is_dir() and not folder.begins_with("."):
-				var pack_path = path + folder
-				var config_path = pack_path + "/config.json"
+				var pack_path = path + folder + "/"
+				var config_path = pack_path + "config.json"
 				if dir.file_exists(config_path):
 					var file = FileAccess.open(config_path, FileAccess.READ)
 					var config = JSON.parse_string(file.get_as_text(true))
@@ -83,21 +83,21 @@ func select_level(pack) -> void:
 func update_preview_panel(pack) -> void:
 	texture = load_image_file(pack.path + pack.config.jacket)
 	level_preview.texture = texture
-	level_name_label.text = "[font_size=24]%s[/font_size]" % pack.config.song
+	level_name_label.text = "[font_size=24]%s[/font_size]" % pack.config.title
 	level_author_label.text = pack.config.author
 	level_difficulty_label.text = "Difficulty: " + str(pack.config.difficulty)
 	start_button.disabled = false
 
-func load_image_file(path):
-	if ResourceLoader.exists(path, "Image"):
-		return load(path)
+func load_image_file(path) -> Resource:
+	if FileAccess.file_exists(path):
+		return ImageTexture.create_from_image(Image.load_from_file(path))
 	return preload("res://res/Journey_with_You_jacket.webp")		# Placeholder
 
 func _on_start_button_pressed():
 	if current_selected_pack:
-		var game_scene = preload("res://scn/level.tscn").instantiate()
-		game_scene.setup_pack(current_selected_pack)
-		get_tree().root.add_child(game_scene)
+		Globals.current_level_info = current_selected_pack
+		ResourceLoader.load_threaded_request("res://scn/level.tscn")
+		get_tree().change_scene_to_packed(ResourceLoader.load_threaded_get("res://scn/level.tscn"))
 
 func _on_settings_button_pressed():
 	get_tree().paused = true

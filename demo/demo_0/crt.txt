@@ -6,7 +6,7 @@
 // Signatures
 # m, meta: meta-data
 # == b, bpm: beats per minute
-# == l, line: line performance
+# == l, line: line performance (not implemented)
 // n, note: note info
 // == t, tap: tap/touch note (blue)
 // == s, slide, d, drag: slide/drag note (yellow)
@@ -20,6 +20,11 @@
 
 // Format
 # signature1 | signature2 | ... | signatureN : value1 | value2
-# e.g. meta | bpm: 160
-# e.g. n|r|ccw:2.5|			blue rotate note @ beat # 2.5
-# e.g. n|catch:17.875|210	catch note @ beat # 17.875 @ degree 210 (Lower-Left)
+# e.g. meta | bpm: 160 | 0	set bpm = 160 @ beat 0
+# e.g. n|r|ccw:|2.5			blue rotate note @ beat # 2.5. "|" is optional; extra "|" would be ignored
+# e.g. n|catch:210|17.875	catch note @ beat # 17.875 @ degree 210 (Lower-Left)
+
+
+m | bpm : 105	 | 0			// In-line comments are also allowed
+
+n | s | b : 180 | 2

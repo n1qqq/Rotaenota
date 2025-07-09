@@ -4,21 +4,28 @@ func _ready():
 	gyro_button.offset_right = viewport.x * .125
 	gyro_button.offset_left = -gyro_button.offset_right
 	speed_label.custom_minimum_size = Vector2(viewport.x * .25, 0)
+	offset_label.custom_minimum_size = Vector2(viewport.x * .25, 0)
 	gyro_button.offset_top = viewport.y * .1
 	speed_ctrls.offset_top = viewport.y * .3
+	offset_ctrls.offset_top = viewport.y * .45
 	back_button.pressed.connect(_on_back_button_pressed)
 	gyro_button.item_selected.connect(_on_gyro_selected)
 	for item in speed_ctrls.get_children():
 		if item is Button:
 			item.pressed.connect(_on_speed_buttons_pressed.bind(item.name))
+	for item in offset_ctrls.get_children():
+		if item is Button:
+			item.pressed.connect(_on_offset_buttons_pressed.bind(item.name))
 	read_settings()
 	show_panel()
 
 @onready var viewport := get_viewport_rect().size
-@onready var back_button := $BackButton
-@onready var gyro_button := $GyroButton
-@onready var speed_ctrls := $SpeedControls
-@onready var speed_label := $SpeedControls/Speed
+@onready var back_button = $BackButton
+@onready var gyro_button = $GyroButton
+@onready var speed_ctrls = $SpeedControls
+@onready var speed_label = $SpeedControls/Speed
+@onready var offset_ctrls = $OffsetControls
+@onready var offset_label = $OffsetControls/Offset
 
 ## Returns formatted string with size set
 func set_font_size(str: String, size: int) -> String:
@@ -26,7 +33,8 @@ func set_font_size(str: String, size: int) -> String:
 
 ## Get settings from Globals. Used as an update fn
 func read_settings():
-	speed_label.text = set_font_size(str(Globals.note_speed), 24)
+	speed_label.text = set_font_size(str(Globals.note_speed) + " x", 24)
+	offset_label.text = set_font_size(str(Globals.offset) + " ms", 24)
 	gyro_button.selected = Globals.gyro_type
 
 ## Store settings to preferences.json file
@@ -34,6 +42,7 @@ func save_settings():
 	if FileAccess.file_exists(Globals.settings_path):
 		var file = FileAccess.open(Globals.settings_path, FileAccess.WRITE)
 		file.store_string(JSON.stringify({"gyro_type": Globals.gyro_type, "note_speed": Globals.note_speed, 
+						  "offset": Globals.offset,
 						  "render_timing": Globals.render_timing, "render_pool": Globals.render_pool}, "\t"))
 
 func show_panel():
@@ -60,6 +69,18 @@ func _on_speed_buttons_pressed(name: String):
 		"ff":	val = .1
 		"fff":	val = 1.
 	Globals.note_speed = clampf(Globals.note_speed + val, 1, 8)
+	read_settings()
+
+func _on_offset_buttons_pressed(name: String):
+	var val: int
+	match name:
+		"sss":	val = -100
+		"ss":	val = -10
+		"s":	val = -1
+		"f":	val = 1
+		"ff":	val = 10
+		"fff":	val = 100
+	Globals.offset = clampf(Globals.offset + val, -2000, 2000)
 	read_settings()
 
 func _on_back_button_pressed():

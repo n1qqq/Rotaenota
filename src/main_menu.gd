@@ -9,12 +9,14 @@ func _ready():
 	touch_area.connect("gui_input", _on_touch_area_gui_input)
 	add_child(touch_area)
 	
-	var title = Label.new()
-	title.text = "Rotaenota"
+	var title = RichTextLabel.new()
+	title.bbcode_enabled = true
+	title.text = "[b][font_size=48]Rotaenota[/font_size][/b]"
 	title.set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER)
 	title.set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER)
 	title.position = Vector2(0, get_viewport_rect().size.y * 0.3)
 	title.size = Vector2(get_viewport_rect().size.x, 100)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(title)
 
 func _on_touch_area_gui_input(event):
