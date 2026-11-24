@@ -1,21 +1,24 @@
 extends Control
 
 @onready var chart_parser = preload("res://src/chart_parser.gd")
-@onready var gyro_initializer = preload("res://src/gyroscope_initializer.gd").new()
+@onready var gyro_initializer = preload("res://src/gyroscope_initializer.gd")
 @onready var gyro_agent = Node.new()
 @onready var bg = $Aspect2/Background
-@onready var start_time: int
-@onready var prev_time: int
+@onready var notes_container = $Notes
+@onready var start_timestamp: int
+@onready var prev_timestamp: int
 @onready var bpm: float
 @onready var chart_data: Dictionary
-@onready var metas: Array[Dictionary] = []	## Meta-data. Flipped to avoid frequent revision of indeces
+@onready var metas: Array[Dictionary] = []	## Meta info. Flipped to avoid frequent revision of indeces
 @onready var notes: Array[Dictionary] = []	## Note info. Flipped to avoid frequent revision of indeces
+@onready var lines: Array[Dictionary] = []	## Line info. Flipped to avoid frequent revision of indeces
 @onready var music: AudioStream
 @onready var music_playback
-@export var up_direction := Vector3.ZERO
+@export var gravity_direction := Vector3.DOWN
 
 func _ready():
 	add_child(gyro_agent)
+	
 	if !setup():
 		var lbl = RichTextLabel.new()
 		lbl.bbcode_enabled = true
@@ -27,22 +30,22 @@ func _ready():
 					Globals.current_level_info.config.title
 		add_child(lbl)
 		await get_tree().create_timer(2).timeout
-		gyro_initializer = null
 		get_tree().change_scene_to_file("res://scn/level_select.tscn")
 		return
-	initialize_chart_data()
-	add_child(gyro_initializer)
-	while gyro_initializer.calibrating:
-		await get_tree().create_timer(.3).timeout
-		if gyro_initializer.failure:
-			gyro_initializer.get_parent().queue_free()
-			gyro_initializer = null
-			get_tree().change_scene_to_file("res://scn/level_select.tscn")
-			return
-	up_direction = gyro_initializer.up_direction
-	gyro_initializer.get_parent().queue_free()
-	gyro_initializer = null
+	
+	var gyro_init = gyro_initializer.new()
+	add_child(gyro_init)
 	gyro_agent.set_script(preload("res://src/gyroscope_agent.gd"))
+	initialize_chart_data()
+	while gyro_initializer.is_calibrating:
+		await get_tree().create_timer(.3).timeout
+		#if gyro_initializer.failure:
+			#gyro_initializer.get_parent().queue_free()
+			#gyro_initializer = null
+			#get_tree().change_scene_to_file("res://scn/level_select.tscn")
+			#return
+	gravity_direction = gyro_initializer.gravity_vector
+	gyro_init.queue_free()
 
 func setup() -> bool:
 	# Jacket
@@ -85,11 +88,21 @@ func _process(_delta):
 			var accel = Input.get_accelerometer()
 			handle_accel_input(accel)
 
-## Unwraps chart_data into METAS and NOTES, do respective calculations, then flip the two arrays back-to-front.
+## Unwraps chart_data into METAS and NOTES, do respective calculations, then flip the arrays back-to-front.
 func initialize_chart_data() -> void:
 	metas.clear()
 	notes.clear()
-	
+	lines.clear()
+	for meta in chart_data.metadata:
+		metas.append(meta)
+	for note in chart_data.notes:
+		notes.append(note)
+	for line in chart_data.lines:
+		lines.append(line)
+	metas.reverse()
+	notes.reverse()
+	lines.reverse()
+	chart_data = {}
 
 func handle_gyro_input(gyro_data):
 	pass

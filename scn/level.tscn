@@ -61,3 +61,5 @@ modulate = Color(1, 1, 1, 0.67)
 layout_mode = 2
 texture = ExtResource("3_5odhy")
 expand_mode = 1
+
+[node name="Notes" type="Node" parent="."]

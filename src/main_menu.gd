@@ -3,6 +3,10 @@ extends Control
 func _ready():
 	#print(JSON.stringify({"title": "Demo 01", "author": "Not Applicable", "jacket": "", "chart": "", "song": "", "preview": "", "difficulty": NAN}, "\t"))
 	# Full-Screen Touchable
+	print(rad_to_deg(Vector3(-1, -1, -1).angle_to(Vector3(0, -1, -1))))
+	var a = Vector2(1, 0)
+	var b = Vector2(0, -1)
+	print(rad_to_deg(atan2(a.y, a.x) - atan2(b.y, b.x)))
 	var touch_area = ColorRect.new()
 	touch_area.color = Color(0, 0, 0, 0)  # Transparent
 	touch_area.custom_minimum_size = get_viewport_rect().size
