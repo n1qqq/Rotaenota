@@ -104,10 +104,10 @@ func initialize_chart_data() -> void:
 	lines.reverse()
 	chart_data = {}
 
-func handle_gyro_input(gyro_data):
+func handle_gyro_input(angular_velocity_rad_s):
 	pass
 
-func handle_accel_input(gyro_data):
+func handle_accel_input(acceleration_m_s2):
 	pass
 
 func _input(event):
