@@ -1,123 +1,130 @@
-# 陀螺仪逻辑检查
+# 体感输入模型与验证
 
-检查基于当前源码、Godot 4.4.1 的无窗口运行和合成角速度输入，并按作者后续说明补充模式定义。结论：**现有代码尚未实现三种模式各自的角度语义，且校准到关卡的连接存在可复现错误。** HANDHOLD 不支持水平放置、DESKTOP 不支持竖直放置是设计边界，不应作为必须支持任意姿态的缺陷。初次检查后已重命名部分体感变量并同步本文引用，算法行为尚未修改。尚未进行手机实测，不能据此评价实际延迟、噪声和手感。
+校准与传感器节点生命周期已修复，三种模式现在输出角度、角速度、角加速度和有效状态。模拟输入测试覆盖数学模型与实际关卡启动、暂停、重试和退出；尚未进行手机实测。音符绘制、时间判定和计分仍未实现。
 
-## 已确认的问题
+## 坐标与零点
 
-| 优先级 | 位置 | 问题与后果 |
+设备坐标约定为 X 向屏幕右、Y 向屏幕上、Z 向屏幕外。角度使用弧度，逆时针为正；角速度为 rad/s，角加速度为 rad/s²。Godot 的二维屏幕 Y 轴向下，后续绘图应使用 `(cos(angle), -sin(angle))`。
+
+| 模式 | 零点与角度 | 不支持的姿态 |
 | --- | --- | --- |
-| 阻断 | `src/level.gd:40,47` | `gyro_initializer` 是 preload 得到的 GDScript 资源，运行中的实例是 `gyro_init`。访问资源的 `is_calibrating` 会直接报错；后续 `gravity_vector` 读取也用错对象。 |
-| 阻断 | `src/level.gd:22,38` | 先将普通 Node 加入树，再 `set_script`，不会因此重新调用新脚本的 `_ready()`。实测代理的校准时间仍为 0。应该实例化带脚本的代理，再加入树。 |
-| 高 | `src/level.gd:36–48` | 代理在校准完成之前就启动，即使修复上面两处，它也会过早读取父节点的默认重力。应先完成有效校准，再向代理传入结果并启动积分。 |
-| 高 | `src/gyroscope_agent.gd:41,88,92` | `orientation_correction_deg` 的值为 0/180 度，现有计算却直接乘 π，未正确换算为弧度。180π 等于 32400°，即 90 圈；取模后是 0°，根本没有补偿半圈。 |
-| 高 | `src/gyroscope_agent.gd:58–67` | 四元数和标量都只积分 `gyro.z`，完全丢弃 X、Y 分量。四元数因此不是完整设备姿态；后面的 `device_y_world` 无法描述真实倾斜。 |
-| 高 | `src/gyroscope_agent.gd:23,52–53` | 将重力投影角当作初始角，却用局部 Z 角速度累加；二者不是任意姿态下同一个角度的值与导数。 |
-| 高 | `src/gyroscope_initializer.gd:38–41` | “加速度永远与重力方向相反”的假设不成立于所有 Godot 平台实现。直接取反需要按引擎实际坐标验证，不能沿用原生传感器的直觉。 |
-| 中 | `src/gyroscope_initializer.gd:15–55` | 只有两秒超时，没有有效样本计数和稳定性检测。无传感器时保留非零默认向量，仍报告校准完成。只要求模长 ≥8 也会接受强烈运动。 |
-| 中 | `src/gyroscope_initializer.gd:41` | 上一帧归一化为长度 1，再与约 9.8 的原始向量 lerp，实际权重不是声明的 0.1；60 FPS 下方向贡献比例约为 0.98/(0.9+0.98)≈52%，不能按 10% 低通理解。 |
-| 中 | `src/gyroscope_agent.gd:15,23,107` | `initial_angle_offset_rad` 存放的是角度偏置，未测量/扣除陀螺仪零速偏置（rad/s）。自动重校准被 `if false` 永久禁用，漂移阈值常量未使用。 |
-| 阻断游玩 | `src/level.gd:84–127` | 体感和触摸处理为 pass；没有读取 `output_angle_rad` 的游戏逻辑。音乐只加载未播放，也没有音符运动或判定。 |
+| HANDHOLD | 屏幕上方朝上时的屏幕右侧为固定 0°；校准时斜着拿不会重设零点 | 水平放置及接近水平的区域 |
+| DESKTOP | 以进入关卡完成校准时的屏幕右侧为 0°，测量相对于该朝向的桌面内转角 | 竖直放置及接近竖直的区域 |
+| ACCEL | 同 HANDHOLD，只使用加速度计估计屏幕内偏转，不关心世界方位 | 水平放置时转角无法从重力观测 |
 
-`_apply_orientation_logic()` 还有两个概念问题：点积大于零表示 Y 轴与重力同向，注释却写为“朝上”；它也不是操作系统的显示方向检测。对于固定屏幕坐标中的完整 360° 转角，`atan2` 本身已包含半平面信息，无需额外靠猜测加 π。应先明确该分支想解决的是显示方向改变、姿态翻转还是角度展开。
+HANDHOLD / ACCEL 不需要知道设备朝向世界的哪个方位。DESKTOP 的重力只能确定桌面法线，桌面内的零点来自校准时建立的参考坐标，不来自磁北。
 
-## 建议的角度定义
+## 校准与节点生命周期
 
-角度语义按输入模式区分：
+`level.gd` 先完成曲包加载，再创建 `GyroInitializer.new()` 实例；连接成功和失败信号后才加入场景树。初始化器不再访问父节点的隐式重力变量，也不再从 GDScript 资源读取实例属性。
 
-- **HANDHOLD**：陀螺仪方向盘模式，处理手持设备的屏幕内倾斜；设备水平放置时的角度不在支持范围内。
-- **DESKTOP**：平放在桌面上的设备使用陀螺仪检测转动，参考朝向必须在进入关卡、完成校准时记录。设备竖直放置（如挂壁电视机）时的角度不在支持范围内。这里需要相对校准朝向的角度，不能用重力的屏幕投影角代替；平放时重力无法提供桌面内的朝向参考。
-- **ACCEL**：用加速度计检测绕屏幕法线的偏转，不关心设备在世界中的方位。静止或缓慢移动时可从重力投影估计该偏转；平移加速度会干扰估计。设备水平时绕屏幕法线转动不改变重力读数，单靠加速度计无法观测这一转角。
+校准要求连续两秒有效静止采样、至少 30 个样本。重力模长须在 `9.80665 ± 1.5 m/s²` 内；HANDHOLD / DESKTOP 的原始角速度模长须不大于 `0.08 rad/s`；重力方向相对于这段静止窗口起点的变化须不超过 2°。运动或无效数据会重启连续采样窗口，总等待超过八秒则失败。有效样本按时间加权估计重力方向和三轴角速度零偏；ACCEL 不依赖陀螺仪，零偏设为零。
 
-下面的重力投影模型用于说明 HANDHOLD 的角度语义和 ACCEL 的角度估计，不是 DESKTOP 的角度公式。HANDHOLD 与 ACCEL 的零点约定仍需明确；DESKTOP 的零点已明确为校准完成时的朝向。
+收到成功信号后，关卡释放初始化器，以 `GyroAgent.new()` 创建已带脚本的节点，调用 `configure(mode, gravity_direction, gyro_bias_rad_s)`，再加入场景树。代理以物理帧读取输入，不再由关卡重复读取同一组传感器。
 
-定义设备坐标为 X 向屏幕右、Y 向屏幕上、Z 向屏幕外。令 `g=(gx,gy,gz)` 为该坐标系内的向下重力，先从传感器输出转换到这个约定；Godot 的 Vector3.DOWN 是 `(0,-1,0)`，二维 Vector2.DOWN 则是 `(0,1)`。
+失败时不创建代理，显示失败原因并允许重试、返回。重试先释放旧节点。暂停或失焦立即释放传感器节点；恢复且未暂停时重新校准，避免使用未被跟踪的姿态。离开关卡由场景树释放子节点，没有跨场景存活的校准等待协程。
 
-当重力在屏幕平面的投影非零时，可定义投影角：
+单次输入间隔超过 0.1 秒、有效重力丢失或实际姿态离开支持范围时，代理清除有效状态并要求重新校准。关卡在下一次物理更新启动新校准。DESKTOP 的零点也会随之重设；不尝试恢复缺失期间的转角。
+
+静止时没有陀螺仪的设备与输出全零的陀螺仪无法仅靠这些读数区分。当前校准能检测缺少重力输入，不能保证检测所有“有加速度计、无陀螺仪”的设备；这种设备应选择 ACCEL，后续可补充平台能力查询。
+
+## 角度模型
+
+### HANDHOLD
+
+令 `q` 为当前设备坐标到校准参考坐标的四元数，`g0` 为校准重力单位向量，`omega` 为扣除三轴静止零偏后的角速度：
 
 ```text
-h = sqrt(gx² + gy²)
-theta_g = atan2(gx, -gy)
+q = normalize(q * Quaternion(normalize(omega), length(omega) * dt))
+g = inverse(q) * g0
+alpha = atan2(-g.x, -g.y)
 ```
 
-这个角描述重力投影，设备旋转角的符号需要根据游戏约定取反，并按所选零点约定加入偏置。对同一 theta 的一族方向：
+零角速度时跳过轴角构造。这里积分完整三轴角速度，不把 X/Y 旋转丢掉。重力观测通过四元数倾斜修正缓慢融合，时间常数为两秒；不会每隔几分钟硬重置方向。
+
+定义 `h² = gx² + gy²`，对应的有符号角速度为：
 
 ```text
-g(theta, phi) = (sin(theta) cos(phi), -cos(theta) cos(phi), sin(phi))
+alpha_dot = omega_z - gz * (omega_x*gx + omega_y*gy) / h²
 ```
 
-只要 `cos(phi)>0`，代入就得到相同的 `theta_g`，phi 不参与判定。绕世界重力轴转身也不会改变设备内的重力向量。这给出了可以直接测试的“phi 无关”含义。
-
-但当屏幕水平、`h≈0` 时，重力投影没有方向，`atan2(0,0)` 即使返回数值也没有物理意义。跨过这个极点后投影还可能反向。HANDHOLD 明确不处理此姿态；ACCEL 也受可观测性的限制。实现应标记角度无效并明确恢复策略，避免把不可靠数值送入判定。DESKTOP 应使用自己的校准朝向参考和陀螺仪估计，不能复用这个投影公式。
-
-### 重力投影角为什么通常不能只积分 Z
-
-在上述设备坐标内，固定世界重力满足：
+它来自 `dg/dt = -omega × g`，所以倾斜时通常不能直接拿 `gyro.z` 代替。对于同一 alpha、不同 phi 的方向族：
 
 ```text
-dg/dt = -omega × g
-d(theta_g)/dt = -omega_z + gz * (omega_x*gx + omega_y*gy) / (gx²+gy²)
+g(alpha, phi) = (-sin(alpha)*cos(phi), -cos(alpha)*cos(phi), sin(phi))
 ```
 
-这是从投影角定义直接求导的结果。只有在 `gz=0` 或额外项恰好为零等特殊情况下，投影角速度才简化为 `-omega_z`。这说明 HANDHOLD 在允许的倾斜姿态内仍需要处理坐标变化。对于始终平放且只绕屏幕法线转动的 DESKTOP，积分 Z 角速度可以表示相对初始朝向的转角；是否需要完整姿态处理，取决于它允许的离桌倾斜范围。
+在 `cos(phi)>0` 的有效范围内，投影角不随 phi 改变。绕世界重力轴转身也不改变该角。
 
-实现时更适合在完整四元数中处理姿态，再提取目标角，避免直接在接近奇点的公式上积分。若 `q` 表示设备坐标到参考坐标的旋转，陀螺仪 `omega` 使用设备坐标，可采用：
+当单位重力的屏幕投影长度小于 0.2 时，角度无效，相当于排除水平附近约 11.5° 的区域。这个阈值是当前实现参数，仍需按手机手感调节。
+
+### DESKTOP
+
+同样积分三轴四元数 `q`，校准时 `q=IDENTITY`。用校准重力确定水平面，并选择朝向初始屏幕正面的法线 `n`；将初始与当前屏幕右方向投影到该平面，得到 `r0` 和 `r`：
 
 ```text
-w = omega - measured_gyro_bias
-q = normalize(q * Quaternion(normalize(w), length(w) * dt))
-g_device = inverse(q) * g_reference
+r0 = project_to_plane(device_right, n)
+r = project_to_plane(q * device_right, n)
+alpha = atan2(dot(n, cross(r0, r)), dot(r0, r))
+r_dot = project_to_plane(q * cross(omega, device_right), n)
+alpha_dot = dot(n, cross(r, r_dot)) / dot(r, r)
 ```
 
-`w≈0` 时跳过轴角构造；初始 `q` 与 `g_reference` 必须使用同一校准约定。重力可用来缓慢校正可观测的倾斜漂移，不能修正绕重力轴的绝对航向漂移。运动加速度大或投影太小时应降低/停止对应校正；不要固定三分钟后硬重置到单位四元数。
+设备一直平放时就是屏幕 Z 轴积分，零点为校准完成时的朝向。允许轻度离桌倾斜，通过投影避免将俯仰直接算作桌面转角；当单位重力 `abs(g.z)<0.2`，即接近竖直时，判为无效。
 
-游戏不需要累计圈数。`z_angle_rad` 目前实际上是积分得到并 wrap 到 ±π 的角度；wrap 本身没有问题，转满一圈返回原角度也是正确行为。如果需要计算相邻帧角度差，应使用 `delta_angle = wrapf(angle - previous_angle, -PI, PI)`，避免跨边界直接相减产生假跳变，无需再累加成总转角。这个差分要求相邻采样实际转角小于 π。
+此模式仅扣除初始陀螺仪零偏，重力无法修正桌面内的长期航向漂移；需要用户重新校准或后续引入额外参考。没有伪造绝对航向。
 
-### Catch 与 Rotate 的判定规则
+### ACCEL
 
-按项目作者补充的规则，设备正右、正左各有一个 Catch 判定点。设设备正右的世界角为 `alpha`，则两个判定点为 `alpha` 与 `alpha+PI`。对音符角 `theta_note`，角度误差可以写为：
+直接平滑加速度方向，时间常数 0.04 秒，再用 `atan2(-gx,-gy)` 得到角度。相邻角差先 wrap 到 ±π 再除以 dt，避免跨越角度边界时产生假的速度峰值。滤波权重使用 `1-exp(-dt/tau)`，且始终在同为单位向量的数据之间混合。
 
-```text
-catch_error = abs(wrapf(theta_note - alpha, -PI/2, PI/2))
-```
+这种方法不依赖设备的世界方位，也不使用陀螺仪，但线性加速度会影响角度，水平放置时重力投影没有方向。无法用算法从不存在的重力方向信息恢复水平旋转。
 
-误差在容许范围内且满足时间条件即可接住。因此对于 Catch，设备角按 π 等价：0° 的音符在设备转过 180° 后可由左侧判定点接住。这里假设两侧使用相同的判定容差；这条等价关系不应直接推广为所有音符和画面都只需要半圈角度。
+## Catch 与 Rotate 的输入
 
-Rotate 按作者指定使用有符号的旋转角加速度判定，与起始设备角度和累计圈数无关。持续匀速旋转不触发 Rotate；减速产生与转动方向相反的角加速度，按该加速度方向判定。应先得到游戏所需旋转自由度的有符号角速度，再对时间求导得到角加速度；不能把角速度读数直接当成角加速度。差分需要滤波，并在初始化、暂停恢复或采样间隔异常时重置历史值，避免虚假的加速度峰值。阈值和时间窗仍需在实际判定实现中明确。
+代理输出：
 
-### 音符与触摸应共用一个角度空间
-
-建议统一数学约定：世界音符角 `theta_note`，设备逆时针转角 `alpha`，屏幕内数学角 `beta = theta_note - alpha`。屏幕位置为：
-
-```text
-x = center_x + radius * cos(beta)
-y = center_y - radius * sin(beta)
-```
-
-触摸点先转回数学角 `beta_touch = atan2(-(y-center_y), x-center_x)`，再用 `theta_touch = beta_touch + alpha` 与谱面角比较，误差取最短圆周差。绘制与判定必须使用同一帧的 alpha；谱面角由度转弧度一次即可。径向时间函数只需要在音符 timing 满足 `radius(timing)=判定圈半径`，phi 不加入命中条件。
-
-以上是后续实现约定，当前项目尚无这些绘制与判定代码，也没有足够信息声称这与 Rotaeno 内部实现完全相同。
-
-## Godot 传感器约定
-
-Godot 4.4 的 `get_gyroscope()` 返回设备各轴的角速度，单位 rad/s；加速度为 m/s²。手机传感器读取支持 Android / iOS，桌面可以用 `Input.set_gyroscope()`、`set_accelerometer()` 等注入测试值。Android 使用 `get_gravity()` 还需启用 `input_devices/sensors/enable_gravity`，当前项目未显式启用该项。[Input 文档](https://docs.godotengine.org/en/4.4/classes/class_input.html)
-
-Godot 4.4.1 的 iOS 实现将 Core Motion 的 gravity 与 userAcceleration 相加作为 accelerometer，并按界面方向转换坐标；静止时该值与传入引擎的 gravity 同向。因此项目无条件 `-accel` 至少不符合这个平台的实现。[iOS 源码](https://github.com/godotengine/godot/blob/4.4.1-stable/platform/ios/godot_view.mm#L375)
-
-Android 的输入层同样会按照显示方向重映射传感器 X/Y 分量。后续适配要检查完整的平台转换链，在固定横屏下用已知姿态验证轴向，避免重复做 90° / 180° 转换。[Android 源码](https://github.com/godotengine/godot/blob/4.4.1-stable/platform/android/java/lib/src/org/godotengine/godot/input/GodotInputHandler.java#L687)
-
-## 验证结果与后续验收
-
-本机使用 Godot `4.4.1.stable.official.49a5bc7b6`。无窗口编辑器扫描没有报告 GDScript 解析错误，但输出了系统证书读取和编辑器设置写入权限错误，不能称为完全干净的检查。随后在 SceneTree 测试脚本中加载真实 demo_0 配置、实例化关卡，并直接调用传感器代理的数学函数，得到：
-
-| 输入或操作 | 实际结果 |
+| 字段 | 含义 |
 | --- | --- |
-| `_update_rotation_state(Vector3(PI/2,0,0), 1.0)` | 四元数仍为 `(0,0,0,1)`，X 轴 90° 完全丢失 |
-| 默认状态执行 `_apply_orientation_logic()` | `orientation_correction_deg=180`，乘 π 后为 32400° |
-| Z 轴输入 TAU rad/s，持续 1 秒 | wrap 后角度约 `1.75e-7` rad，即数值误差范围内的 0；符合不保留圈数的需求，不属于缺陷 |
-| 使用有效 demo_0 启动关卡 | `level.gd:40` 报 `Invalid access ... is_calibrating ... GDScript` |
-| 等待 2.5 秒后读取代理状态 | `last_calibration_time=0`，后挂脚本没有执行预期 `_ready()` |
-| 桌面零加速度输入 | 初始化器仍报告重力校准完成，返回默认 `(0,-1,0)` |
+| `output_angle_rad` | 当前模式下的设备角，wrap 到 `[-PI, PI)`，不保留圈数 |
+| `angle_valid` | 当前角度是否可用于判定；无效时显示值可能仍是上一有效角 |
+| `angular_velocity_rad_s` | 当前角度模型对应的有符号角速度 |
+| `angular_acceleration_rad_s2` | 相邻角速度差分并低通后的有符号角加速度 |
+| `acceleration_valid` | 是否已有足够连续历史样本可判断 Rotate |
+| `is_calibrated` | 当前是否持有可继续使用的校准参考 |
 
-修复后应先用合成姿态生成 `g_device=q.inverse()*g_reference` 及对应角速度，测试恒定角、顺逆转动、±π 边界、相同 theta 不同 phi、纯世界竖直轴转动、水平极点、无传感器和不同帧率。Catch 应验证设备角相差 180° 时两侧判定等价；Rotate 应验证相同旋转角加速度在不同初始角下结果一致，并测试匀速、加速、减速和暂停恢复。合成输入可以确定数学与生命周期是否正确，不能替代真实传感器测试。
+Catch 在设备左右两侧各有判定点，因此角差按半圈等价。`MotionMath.catch_error(note_angle, device_angle)` 返回：
 
-手机验收时固定屏幕方向：静止持握完成校准；分别转动 ±90°、180°、360°；维持相同目标角改变倾斜程度；绕世界竖直轴转身；短时水平持握；最后静置数分钟观察漂移。应记录原始 gyro/accel、估计重力、角度和有效状态，并显示简单方向指示器，才能区分传感器误差、姿态映射错误和渲染符号错误。
+```text
+abs(wrapf(note_angle - device_angle, -PI/2, PI/2))
+```
+
+设备转过 180° 后，另一侧可接住同一位置的音符。该函数仅计算角差，实际时间窗和容差尚未接入音符判定。
+
+Rotate 使用角加速度，与起始角度和圈数无关。匀速转动的稳定输出为零；减速产生与角速度相反的角加速度。正加速度对应逆时针 Rotate，负加速度对应顺时针 Rotate。角加速度低通时间常数为 0.04 秒，突变后存在短暂滤波尾迹。首个角速度样本不产生加速度；ACCEL 需要先取得连续角度样本再取得连续速度样本。重校准或无效输入会清空差分历史，避免启动尖峰。判定阈值和时间窗仍待实现和实测。
+
+## 平台输入
+
+项目启用了 accelerometer、gyroscope 和 gravity 三个传感器开关。HANDHOLD / DESKTOP 优先使用 `Input.get_gravity()`，没有有效重力数据时回退到加速度计；ACCEL 始终使用加速度计。通过 `feed_sample(gyro, gravity, delta)` 注入模拟数据时，gravity 必须是 m/s²、已遵循设备坐标约定的向下重力样本。
+
+Godot 4.4 的手机传感器 API 支持 Android / iOS，普通桌面可用 `Input.set_gyroscope()`、`set_gravity()` 和 `set_accelerometer()` 注入值。[Input 文档](https://docs.godotengine.org/en/4.4/classes/class_input.html)
+
+Godot 4.4.1 Android 的输入处理已重映射显示方向，并在调用 `GodotLib.accelerometer` / `gravity` 前取反原生数据；陀螺仪不取反。iOS 将 Core Motion 的 gravity 与 userAcceleration 相加，按显示方向转换。因此游戏层不再次统一取反或补 180°。[Android 输入转换](https://github.com/godotengine/godot/blob/4.4.1-stable/platform/android/java/lib/src/org/godotengine/godot/input/InputEventRunnable.java#L321)、[iOS 输入转换](https://github.com/godotengine/godot/blob/4.4.1-stable/platform/ios/godot_view.mm#L375)
+
+## 验证
+
+运行 `godot --headless --path . --script tests/motion_test.gd`，使用 Godot 4.4.1。测试覆盖：
+
+- 无传感器超时、连续静止要求、三轴零偏和错误持握姿态。
+- HANDHOLD / ACCEL 在不同校准角、不同倾斜角下保留固定零点；DESKTOP 重校准后零点更新。
+- HANDHOLD 改变倾斜或绕世界竖直轴转身时保持角度，DESKTOP 俯仰不产生转角。
+- 30 / 60 / 120 FPS 下的角度与匀速输出，±π 边界不产生 Rotate 尖峰。
+- 不同起始角下相同角加速度、减速产生反向角加速度，DESKTOP / ACCEL 的负向角加速度。
+- Catch 的左右半圈等价、异常采样间隔、静止零偏扣除和传感器读数来源。
+- 真实 `level.tscn` 的校准成功、失败重试、暂停恢复、失焦与暂停交叠、节点释放和离开关卡。
+
+模拟验证不包含真实手机噪声、传感器采样延迟、丢采样或长期漂移。当前手机验收重点是：固定横屏运行，检查顺逆转动的符号；以不同倾斜角完成同一目标动作；匀速、加速、减速分别记录输出；验证无效姿态恢复和 DESKTOP 重校准零点；静置数分钟检查漂移。滤波、稳定性和有效范围阈值应根据这些数据调节。
+
+## 已修复的旧问题
+
+移除了脚本资源与实例混用、先加入空 Node 再挂脚本、校准前启动积分、`180*PI` 单位错误、仅用 Z 的伪完整姿态、无数据仍宣布校准完成、单位向量与原始加速度混合滤波，以及永不执行的定时重校准分支。原先关于必须保留累计圈数的判断也已撤回：游戏无需圈数，wrap 本身是正确行为。

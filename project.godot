@@ -29,6 +29,7 @@ animation_library={
 
 sensors/enable_accelerometer=true
 sensors/enable_gyroscope=true
+sensors/enable_gravity=true
 pointing/emulate_touch_from_mouse=true
 
 [rendering]

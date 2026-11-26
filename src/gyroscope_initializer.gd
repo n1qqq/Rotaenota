@@ -1,55 +1,79 @@
 extends Node
 
-const ADJUSTMENT_DURATION = 2.
-const GRAVITY_SMOOTHING_FACTOR = 0.1
-const MIN_GRAVITY_MAGNITUDE = 8.0  		## Unit: m/s²
+signal completed(gravity_direction: Vector3, gyro_bias_rad_s: Vector3)
+signal failed(reason: String)
 
-@export var gravity_vector: Vector3 = Vector3.ZERO
-@export var is_calibrating: bool = false
-var _calibration_start_time: float = 0.0
+const MotionMath = preload("res://src/motion_math.gd")
+const CALIBRATION_DURATION := 2.0
+const CALIBRATION_TIMEOUT := 8.0
+const MAX_STATIONARY_RATE := 0.08
+const MAX_DIRECTION_CHANGE := deg_to_rad(2.0)
 
-func _ready():
+var mode: int = Globals.GYRO.HANDHOLD
+var poll_sensors := true
+var is_calibrating := false
+var gravity_direction := Vector3.ZERO
+var gyro_bias_rad_s := Vector3.ZERO
+var _elapsed := 0.0
+var _stable_time := 0.0
+var _sample_count := 0
+var _gravity_sum := Vector3.ZERO
+var _gyro_sum := Vector3.ZERO
+var _anchor_direction := Vector3.ZERO
+
+
+func _ready() -> void:
 	start_calibration()
 
-func start_calibration():
+
+func start_calibration() -> void:
 	is_calibrating = true
-	_calibration_start_time = Time.get_ticks_msec() / 1000.0
-	gravity_vector = get_parent().gravity_direction
-	print("Starting gravity calibration...")
-
-func _process(delta: float):
-	var raw_accel = Input.get_accelerometer()
-	
-	_update_gravity_estimate(raw_accel, delta)
-	
-	if is_calibrating:
-		if _check_calibration_complete():
-			_finish_calibration()
+	_elapsed = 0.0
+	gravity_direction = Vector3.ZERO
+	gyro_bias_rad_s = Vector3.ZERO
+	_reset_samples()
 
 
-func _update_gravity_estimate(raw_accel: Vector3, delta: float):
-	if raw_accel.length() < MIN_GRAVITY_MAGNITUDE:
+func _physics_process(delta: float) -> void:
+	if poll_sensors:
+		feed_sample(Input.get_gyroscope(), MotionMath.read_gravity_sample(mode), delta)
+
+
+func _reset_samples() -> void:
+	_stable_time = 0.0
+	_sample_count = 0
+	_gravity_sum = Vector3.ZERO
+	_gyro_sum = Vector3.ZERO
+	_anchor_direction = Vector3.ZERO
+
+
+func feed_sample(gyro: Vector3, gravity: Vector3, delta: float) -> void:
+	if not is_calibrating or not is_finite(delta) or delta <= 0.0:
 		return
-	
-	# Smoothing factor
-	var smoothing = clamp(GRAVITY_SMOOTHING_FACTOR * delta * 60.0, 0.01, 0.9)
-	
-	# 更新重力向量（使用低通滤波）
-	# 注意：加速度计数据是重力方向的反方向
-	#      所以我们需要取反来获得真实重力方向
-	var current_gravity = -raw_accel
-	gravity_vector = gravity_vector.lerp(current_gravity, smoothing).normalized()
-
-func _check_calibration_complete() -> bool:
-	var current_time = Time.get_ticks_msec() / 1000.0
-	if current_time - _calibration_start_time > ADJUSTMENT_DURATION:
-		return true
-	return false
-
-func _finish_calibration():
-	if gravity_vector.length() < 0.1:
-		push_warning("Invalid gravity vector after calibration")
-		gravity_vector = Vector3.DOWN  # default
-	
-	is_calibrating = false
-	print("Gravity calibration complete. Gravity direction: ", gravity_vector)
+	_elapsed += delta
+	if _elapsed >= CALIBRATION_TIMEOUT:
+		is_calibrating = false
+		failed.emit("Calibration failed. Hold the device still in a supported pose, then retry.")
+		return
+	var valid := MotionMath.valid_gravity(gravity) and MotionMath.supported_pose(mode, gravity)
+	valid = valid and delta <= MotionMath.MAX_SAMPLE_INTERVAL
+	if mode != Globals.GYRO.ACCEL:
+		valid = valid and gyro.is_finite() and gyro.length() <= MAX_STATIONARY_RATE
+	if not valid:
+		_reset_samples()
+		return
+	var direction := gravity.normalized()
+	if _sample_count > 0 and direction.angle_to(_anchor_direction) > MAX_DIRECTION_CHANGE:
+		_reset_samples()
+	if _sample_count == 0:
+		_anchor_direction = direction
+	_stable_time += delta
+	_sample_count += 1
+	_gravity_sum += direction * delta
+	if mode != Globals.GYRO.ACCEL:
+		_gyro_sum += gyro * delta
+	if _stable_time >= CALIBRATION_DURATION and _sample_count >= 30:
+		gravity_direction = _gravity_sum.normalized()
+		gyro_bias_rad_s = _gyro_sum / _stable_time
+		is_calibrating = false
+		completed.emit(gravity_direction, gyro_bias_rad_s)
