@@ -38,12 +38,8 @@ func read_settings():
 	gyro_button.selected = Globals.gyro_type
 
 ## Store settings to preferences.json file
-func save_settings():
-	if FileAccess.file_exists(Globals.settings_path):
-		var file = FileAccess.open(Globals.settings_path, FileAccess.WRITE)
-		file.store_string(JSON.stringify({"gyro_type": Globals.gyro_type, "note_speed": Globals.note_speed, 
-						  "offset": Globals.offset,
-						  "render_timing": Globals.render_timing, "render_pool": Globals.render_pool}, "\t"))
+func save_settings() -> Error:
+	return Globals.save_config()
 
 func show_panel():
 	modulate.a = 0
